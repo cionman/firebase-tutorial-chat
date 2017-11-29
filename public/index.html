@@ -188,6 +188,8 @@
               this.SPLIT_CHAR = '@spl@';
               this.ONE_VS_ONE = 'ONE_VS_ONE';
               this.MULTI = 'MULTI';
+              this.ulRoomList = document.getElementById('ulRoomList');
+              this.ORIGIN_TITLE = "Firebase-Tutorial";
           }
 
           /**
@@ -204,7 +206,125 @@
               this.dvInputChat.addEventListener('keydown', this.onEnterKey.bind(this));
               this.iBtnSend.addEventListener('click', this.saveMessages.bind(this));
               this.dvInputChat.addEventListener("paste", this.onPaste.bind(this));
+              this.aBackBtn.addEventListener('click', this.onBackBtnClick.bind(this));
           }
+
+          /**
+           * 백버튼 클릭
+           */
+          FirebaseChat.prototype.onBackBtnClick = function(){
+              this.isOpenRoom = false;
+              this.aBackBtn.classList.add('hiddendiv');
+              this.aInvite.classList.add('hiddendiv');
+              document.getElementById(this.roomFlag).click();
+              this.spTitle.innerText = this.ORIGIN_TITLE;
+              this.ulMessageList.innerHTML='';
+          }
+
+
+          /**
+           *  로그인 후 세팅
+           */
+          FirebaseChat.prototype.setLogin = function(user){  //user 파라미터 추
+              this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
+              this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
+              this.dvAuth.style.display = 'none';
+              this.checkAndSaveUser(user);
+              this.loadUserList();
+              this.loadRoomList();  //채팅방 목록불러오기
+          }
+
+          /**
+           *  두번째 탭 채팅방 목록리스트 호출
+           */
+          FirebaseChat.prototype.loadRoomList = function(){
+              this.roomTemplate = document.getElementById('templateRoomList').innerHTML;
+              var roomRef = this.database.ref('UserRooms/'+this.auth.currentUser.uid);
+              roomRef.off();
+              roomRef.orderByChild('timestamp').on('value', this.getRoomList.bind(this))
+          }
+
+          /**
+           * loadRoomList 에서 데이터를 받아왔을 때
+           */
+          FirebaseChat.prototype.getRoomList = function(snapshot){
+              var arrRoomListHtml = [];
+              var cbDisplayRoomList = function(data){
+                  var val = data.val();
+                  var arrRoomUserName = val.roomUserName.split(this.SPLIT_CHAR);
+                  arrRoomUserName.splice(arrRoomUserName.indexOf(this.auth.currentUser.displayName), 1); // 방 제목 타이틀에서는 자신의 이름을 제외합니다.
+                  var eachRoomTitle = arrRoomUserName.length > 1 ?
+                      arrRoomUserName[0] + " 외 " + (arrRoomUserName.length - 1) + "명" : arrRoomUserName[0] +'님';
+
+                  if(data.key === this.roomId && this.isOpenRoom){ //현재 메세지 상단 제목을 갱신해준다.
+                      this.spTitle.innerHTML  = eachRoomTitle;
+                  }
+
+                  arrRoomListHtml.push( _.template(this.roomTemplate)({roomId : data.key, lastMessage:val.lastMessage,
+                      profileImg : val.profileImg, roomTitle : eachRoomTitle, roomUserName:val.roomUserName,
+                      roomUserlist: val.roomUserlist,
+                      roomType : val.roomType, roomOneVSOneTarget : val.roomOneVSOneTarget,
+                      datetime :FirebaseChat.timestampToTimeForRoomList(val.timestamp)}));
+              }
+              snapshot.forEach(cbDisplayRoomList.bind(this));
+              this.ulRoomList.innerHTML = arrRoomListHtml.reverse().join(''); // 역순 정렬
+
+              /**
+               *  roomList 클릭 이벤트 적용
+               */
+              var arrLiList = this.ulRoomList.getElementsByTagName('li')
+              var arrLiListLength = arrLiList.length;
+              for(var i=0; i < arrLiListLength; i++){
+                  arrLiList[i].addEventListener('click', this.onRoomListClick.bind(this));
+              }
+          }
+
+          /**
+           * 룸리스트 클릭
+           */
+          FirebaseChat.prototype.onRoomListClick = function(event){
+              this.roomFlag ='tabRoomList';
+              this.aBackBtn.classList.remove('hiddendiv');
+              this.aInvite.classList.remove('hiddendiv');
+              // 메세지 로드
+              this.roomId = event.currentTarget.getAttribute('data-roomId');
+              this.roomTitle = event.currentTarget.getAttribute('data-roomTitle');
+              this.roomUserlist = event.currentTarget.getAttribute('data-roomUserlist').split(this.SPLIT_CHAR); // 챗방 유저리스트
+              this.roomUserName = event.currentTarget.getAttribute('data-roomUserName').split(this.SPLIT_CHAR); // 챗방 유저 이름
+              this.openChatRoom(this.roomId, this.roomTitle);
+
+              // 메세지 화면 이동
+              this.tabMessageList.click();
+
+          }
+
+          /**
+           * RoomList 화면 시간변환
+           */
+          FirebaseChat.timestampToTimeForRoomList=function(timestamp){
+              var date = new Date(timestamp),
+                  year = date.getFullYear(),
+                  month = date.getMonth()+1,
+                  day = date.getDate(),
+                  hour = date.getHours(),
+                  minute = date.getMinutes();
+              var nowDate = new Date(),
+                  nowYear = nowDate.getFullYear(),
+                  nowMonth = nowDate.getMonth()+1,
+                  nowDay = nowDate.getDate(),
+                  nowHour = nowDate.getHours(),
+                  nowMinute = nowDate.getMinutes();
+              var result;
+              if(year === nowYear && month === nowMonth && day === nowDay){
+                  result = FirebaseChat.pad(hour) +":" + FirebaseChat.pad(minute);
+              }else{
+                  result = FirebaseChat.pad(year) +"-" + FirebaseChat.pad(month) + "-" + FirebaseChat.pad(day);
+              }
+
+              return result;
+          }
+
+
 
           /**
            * 복사 후 붙여넣기 시에 실행
@@ -296,15 +416,23 @@
            * 유저리스트 클릭
            */
           FirebaseChat.prototype.onUserListClick = function(event){
+              this.roomFlag ='tabUserList';
               this.aBackBtn.classList.remove('hiddendiv'); // 백버튼 노출
               this.aInvite.classList.remove('hiddendiv'); // 초대 버튼 노툴
               var targetUserUid = event.currentTarget.getAttribute('data-targetUserUid');
               var targetUserName = event.currentTarget.getAttribute('data-username');
-              this.roomTitle = targetUserName+'님';
-              this.roomUserlist = [targetUserUid, this.auth.currentUser.uid]; // 챗방 유저리스트
-              this.roomUserName = [targetUserName, this.auth.currentUser.displayName] // 챗방 유저 이름
-              this.roomId = this.MAKEID_CHAR + this.auth.currentUser.uid + this.DATETIME_CHAR + FirebaseChat.yyyyMMddHHmmsss();
-              this.openChatRoom(this.roomId, this.roomTitle);  // 파라미터 추가
+              var roomListTarget = document.querySelectorAll('[data-roomType="'+ this.ONE_VS_ONE+'"][data-roomOneVSOneTarget="'+ targetUserUid +'"]')[0];
+              if(roomListTarget){ // null 이 아니면
+                  roomListTarget.click();
+              }else{
+                  // 메세지 로드
+                  this.roomTitle = targetUserName+'님';
+                  this.roomUserlist = [targetUserUid, this.auth.currentUser.uid]; // 챗방 유저리스트
+                  this.roomUserName = [targetUserName, this.auth.currentUser.displayName] // 챗방 유저 이름
+                  this.roomId = this.MAKEID_CHAR + this.auth.currentUser.uid + this.DATETIME_CHAR + FirebaseChat.yyyyMMddHHmmsss();
+                  this.openChatRoom(this.roomId, this.roomTitle);
+
+              }
           }
 
           /**
@@ -425,16 +553,7 @@
 
 
 
-          /**
-           *  로그인 후 세팅
-           */
-          FirebaseChat.prototype.setLogin = function(user){  //user 파라미터 추
-              this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
-              this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
-              this.dvAuth.style.display = 'none';
-              this.checkAndSaveUser(user);
-              this.loadUserList();
-          }
+
 
           /**
            *  첫번째 탭 유저리스트 호출
