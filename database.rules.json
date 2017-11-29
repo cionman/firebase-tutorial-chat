@@ -1,6 +1,50 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "FcmId": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "Users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "UsersConnection": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "Messages": {
+      "$roomId" : {
+        ".read": "root.child('RoomUsers').child($roomId).child(auth.uid).exists()",
+        ".write": "root.child('RoomUsers').child($roomId).child(auth.uid).exists()",
+        "$msgId" :{
+          ".read": "root.child('RoomUsers').child($roomId).child(auth.uid).exists()",
+          ".write": "root.child('RoomUsers').child($roomId).child(auth.uid).exists()"
+        }
+      }
+
+    },
+    "UserRooms" :{
+      "$uid":{
+        ".read": "$uid === auth.uid",
+        "$roomId" :{
+          ".read" : "root.child('RoomUsers').child($roomId).child(auth.uid).exists()",
+          ".write": "root.child('RoomUsers').child($roomId).child(auth.uid).exists()"
+        }
+      }
+    },
+    "RoomUsers" :{
+      "$roomId":{
+        "$uid":{
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    }
+
   }
 }
