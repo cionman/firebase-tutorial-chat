@@ -357,6 +357,25 @@
               this.checkAndSaveUser(user);
               this.loadUserList();
               this.loadRoomList();  //채팅방 목록불러오기
+              this.checkOnline();
+          }
+
+          /**
+           * 온라인 여부 체크 하기 위한 데이터 입력
+           */
+          FirebaseChat.prototype.checkOnline = function(){
+              var userUid = this.auth.currentUser.uid;
+              var myConnectionsRef = this.database.ref('UsersConnection/'+userUid+'/connection');
+              var lastOnlineRef = this.database.ref('UsersConnection/'+userUid+'/lastOnline');
+              var connectedRef = this.database.ref('.info/connected');
+              connectedRef.on('value', function(snap) {
+                  if (snap.val() === true) {
+                      myConnectionsRef.set(true);
+                      // 연결 단절 이벤트
+                      myConnectionsRef.onDisconnect().set(false);
+                      lastOnlineRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                  }
+              });
           }
 
           /**
@@ -621,9 +640,36 @@
               this.userTemplate = document.getElementById('templateUserList').innerHTML;
               var userRef = this.database.ref('Users');
               userRef.off();
-              userRef.orderByChild("userName").once('value', this.getUserList.bind(this));
+              var cbCompleteUserList = function(){
+                  this.loadOnlineStatus();
+              }
+              userRef.orderByChild("userName")
+                  .once('value', this.getUserList.bind(this))
+                  .then(cbCompleteUserList.bind(this));
           }
 
+          /**
+           * 유저의 온라인 여부 감지하여 유저리스트에 표시 해주는 기능
+           */
+          FirebaseChat.prototype.loadOnlineStatus = function(){
+              var usersConnectionRef = this.database.ref('UsersConnection');
+              usersConnectionRef.off();
+              var cbUserConnection = function(data){
+
+                  var connKey =data.key;
+                  var connValue = data.val();
+                  var onlineIcon = document.querySelector('#li' + connKey+' .mood');
+                  if(onlineIcon != null){
+                      if(connValue.connection === true){
+                          onlineIcon.classList.remove('hiddendiv');
+                      }else{
+                          onlineIcon.classList.add('hiddendiv');
+                      }
+                  }
+              }
+              usersConnectionRef.on('child_added', cbUserConnection.bind(this));
+              usersConnectionRef.on('child_changed', cbUserConnection.bind(this));
+          }
 
 
 
