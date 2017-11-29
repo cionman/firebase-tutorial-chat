@@ -183,6 +183,113 @@
               this.DATETIME_CHAR = '@time@';
               this.spTitle = document.getElementById('spTitle');
               this.ulMessageList = document.getElementById('ulMessageList');
+              this.dvInputChat = document.getElementById('dvInputChat');
+              this.iBtnSend = document.getElementById('iBtnSend');
+              this.SPLIT_CHAR = '@spl@';
+              this.ONE_VS_ONE = 'ONE_VS_ONE';
+              this.MULTI = 'MULTI';
+          }
+
+          /**
+           * 초기 이벤트 바인딩
+           */
+          FirebaseChat.prototype.initEvent = function(){
+              this.liGoogleBtn.addEventListener('click', this.onGoogleBtnClick.bind(this));
+              this.auth.onAuthStateChanged(this.onAuthChange.bind(this));
+              this.liFacebookBtn.addEventListener('click', this.onFacebookBtnClick.bind(this));
+              this.liEmailJoin.addEventListener('click', this.displayEmailJoin.bind(this));
+              this.liEmailJoinSubmit.addEventListener('click', this.createEmailUser.bind(this));
+              this.liEmailBtn.addEventListener('click', this.onEmailBtnClick.bind(this));
+              this.liLogOut.addEventListener('click', this.logOut.bind(this));
+              this.dvInputChat.addEventListener('keydown', this.onEnterKey.bind(this));
+              this.iBtnSend.addEventListener('click', this.saveMessages.bind(this));
+              this.dvInputChat.addEventListener("paste", this.onPaste.bind(this));
+          }
+
+          /**
+           * 복사 후 붙여넣기 시에 실행
+           */
+          FirebaseChat.prototype.onPaste = function(e){
+              e.preventDefault();
+              var text = e.clipboardData.getData("text/plain");
+              document.execCommand("insertText", false, text);
+          }
+
+          /**
+           * 메세지 엔터키 클릭
+           */
+          FirebaseChat.prototype.onEnterKey = function(e){
+              if(e.keyCode === 13){ //엔터키 키코드가 입력이 되면
+                  e.preventDefault();
+                  this.saveMessages();
+              }
+          }
+
+          /**
+           * 메세지 전송
+           */
+          FirebaseChat.prototype.saveMessages = function(){
+              var user = this.auth.currentUser;
+              var msg = this.dvInputChat.innerHTML.trim();
+
+              if(msg.length > 0){
+                  this.dvInputChat.focus();
+                  this.dvInputChat.innerHTML = '';
+                  var multiUpdates = {};
+                  var messageRefKey = this.messageRef.push().key; // 메세지 키값 구하기
+                  var convertMsg = FirebaseChat.convertMsg(msg);
+
+
+                  if(this.ulMessageList.getElementsByTagName('li').length === 0){ //메세지 처음 입력 하는 경우
+                      var roomUserlistLength =this.roomUserlist.length;
+                      for(var i=0; i < roomUserlistLength; i++){
+                          multiUpdates['RoomUsers/' +this.roomId+'/' +this.roomUserlist[i]] = true;
+                      }
+                      this.database.ref().update(multiUpdates); // 권한 때문에 먼저 저장해야함
+                      this.loadMessageList(this.roomId); //방에 메세지를 처음 입력하는 경우 권한때문에 다시 메세지를 로드 해주어야함
+                  }
+
+                  multiUpdates ={}; // 변수 초기화
+
+                  //메세지  저장
+                  multiUpdates['Messages/' +this.roomId + '/' + messageRefKey] = {
+                      uid: user.uid,
+                      userName: user.displayName,
+                      message: convertMsg, // 태그 입력 방지
+                      profileImg: user.photoURL ? user.photoURL : '',
+                      timestamp: firebase.database.ServerValue.TIMESTAMP  //서버시간 등록하기
+                  }
+
+                  //유저별 룸리스트 저장
+                  var roomUserListLength = this.roomUserlist.length;
+                  if(this.roomUserlist && roomUserListLength > 0){
+                      for(var i = 0; i < roomUserListLength ; i++){
+                          multiUpdates['UserRooms/'+ this.roomUserlist[i] +'/'+ this.roomId] = {
+                              roomId : this.roomId,
+                              roomUserName : this.roomUserName.join(this.SPLIT_CHAR),
+                              roomUserlist : this.roomUserlist.join(this.SPLIT_CHAR),
+                              roomType : roomUserListLength > 2 ? this.MULTI : this.ONE_VS_ONE,
+                              roomOneVSOneTarget : roomUserListLength == 2 && i == 0 ? this.roomUserlist[1] :  // 1대 1 대화이고 i 값이 0 이면
+                                  roomUserListLength == 2 && i == 1 ? this.roomUserlist[0]   // 1대 1 대화 이고 i값이 1이면
+                                      : '', // 나머지
+                              lastMessage : convertMsg,
+                              profileImg : user.photoURL ? user.photoURL : '',
+                              timestamp: firebase.database.ServerValue.TIMESTAMP
+
+                          };
+                      }
+                  }
+                  this.database.ref().update(multiUpdates);
+              }
+          }
+
+          /**
+           *  메세지에 태그 입력시 변경하기
+           */
+          FirebaseChat.convertMsg = function(html){
+              var tmp = document.createElement("DIV");
+              tmp.innerHTML = html;
+              return tmp.textContent || tmp.innerText || "";
           }
 
           /**
@@ -471,18 +578,7 @@
               });
           }
 
-          /**
-           * 초기 이벤트 바인딩
-           */
-          FirebaseChat.prototype.initEvent = function(){
-              this.liGoogleBtn.addEventListener('click', this.onGoogleBtnClick.bind(this));
-              this.auth.onAuthStateChanged(this.onAuthChange.bind(this));
-              this.liFacebookBtn.addEventListener('click', this.onFacebookBtnClick.bind(this));
-              this.liEmailJoin.addEventListener('click', this.displayEmailJoin.bind(this));
-              this.liEmailJoinSubmit.addEventListener('click', this.createEmailUser.bind(this));
-              this.liEmailBtn.addEventListener('click', this.onEmailBtnClick.bind(this));
-              this.liLogOut.addEventListener('click', this.logOut.bind(this));
-          }
+
 
           /**
            * 로그아웃
