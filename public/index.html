@@ -172,6 +172,137 @@
               this.liEmailBtn = document.getElementById('liEmailBtn');
               this.dvAuth = document.getElementById('dvAuth');
               this.liLogOut = document.getElementById('liLogOut');
+              this.INDEXDB_DB_NAME = "USER";
+              this.INDEXDB_VERSION = 1;
+              this.INDEXDB_STORE ="Users";
+          }
+
+
+          /**
+           * User데이터를 IndexedDB에 저장 및 데이터 변경
+           */
+          FirebaseChat.prototype.saveUserAtIndexedDB = function(user, userName, isSave){
+              if(indexedDB){
+                  var request = indexedDB.open(this.INDEXDB_DB_NAME , this.INDEXDB_VERSION); // 데이터베이스 접근 요청
+                  var objectName = this.INDEXDB_STORE
+                  request.onupgradeneeded = function(){  // 데이터 베이스 생성 또는 버전 업그레이드 시 수행
+                      var db = request.result; //데이터 베이스 객체
+                      var store  = db.createObjectStore(objectName, {keyPath :"uid"}); // 테이블에 해당하는 Object 생성 및 키값 설정
+                  }
+                  request.onsuccess = function() {  // 데이터베이스 접근 요청이 성공 시
+                      var db = request.result;
+                      var tx = db.transaction(objectName, "readwrite"); //읽기쓰기 권한으로 트랜잭션을 얻음
+                      var store = tx.objectStore(objectName);
+
+                      store.get(user.uid).onsuccess = function(event){  //user.uid 기준으로 IndexedDB 데이터를 읽어온다
+                          var data = event.target.result;
+                          console.log('IndexedDB query 결과 : ', data);
+                          console.log('saveUserAtIndexedDB isSave 파라미터', isSave);
+                          if(!data){  //데이터가 없으면 저장
+                              store.put({
+                                  uid: user.uid
+                                  , email: user.email
+                                  , photoURL : user.photoURL ? user.photoURL : ''
+                                  , displayName : userName ? userName : user.displayName
+                                  , isSave : false
+                              });
+                          }
+
+                          if(data && isSave){  // 데이터가 존재하고 isSave 파라미터 true이면 데이터를 업데이트
+                              store.put({
+                                  uid: user.uid
+                                  , email: user.email
+                                  , photoURL : user.photoURL ? user.photoURL : ''
+                                  , displayName : userName ? userName : user.displayName
+                                  , isSave : true
+                              });
+                          }
+                      }
+                      tx.oncomplete = function() {
+                          console.log('IndexedDB 트랜잭션 완료')
+                          db.close();
+                      };
+                  }
+              }
+          }
+
+          /**
+           * 이메일로 가입 처리
+           */
+          FirebaseChat.prototype.createEmailUser = function(){
+              var userName = document.getElementById('joinUserName').value.trim();
+              var email = document.getElementById('joinUserEmail').value.trim();
+              var password = document.getElementById('joinPassword').value.trim();
+              var rePassword =document.getElementById('joinRePassword').value.trim();
+              // 유효성 검증
+              if(this.validateJoinForm(email, password, rePassword)){
+                  var cbCreateUserWithEmail = function(user){
+                      this.saveUserAtIndexedDB(user ,userName, false); //추가 메소드
+                      console.log('이메일 가입 성공 : ', JSON.stringify(user));
+                      //프로필 업데이트 - 이메일 가입시 유저이름 파라미터를 보내지 않으므로 가입 성공 후 처리
+                      user.updateProfile({
+                          displayName: this.userName,
+                      }).then(function() {
+                          console.log('userName 업데이트 성공')
+                      }).catch(function(error) {
+                          console.error('userName 업데이트 실패 : ', error );
+                      });
+
+                      //인증 메일 발송
+                      this.auth.useDeviceLanguage(); // 이메일 기기언어로 세팅
+                      user.sendEmailVerification().then(function() {
+                          console.log('인증메일 발송 성공')
+                      }).catch(function(error) {
+                          console.error('인증메일 발송 에러', error);
+                      });
+
+                  }
+                  var cbAfterPersistence = function(){
+                      return this.auth.createUserWithEmailAndPassword(email, password)
+                          .then(cbCreateUserWithEmail.bind(this))
+                          .catch(function(error) {
+                              console.error('이메일 가입시 에러 : ', error);
+                              switch(error.code){
+                                  case "auth/email-already-in-use":
+                                      alert('이미 사용중인 이메일 입니다.');
+                                      break;
+                                  case "auth/invalid-email":
+                                      alert('유효하지 않은 메일입니다');
+                                      break;
+                                  case "auth/operation-not-allowed":
+                                      alert('이메일 가입이 중지되었습니다.');
+                                      break;
+                                  case "auth/weak-password":
+                                      alert("비밀번호를 6자리 이상 필요합니다");
+                                      break;
+
+                              }
+                          });
+                  }
+
+                  this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                      .then(cbAfterPersistence.bind(this))
+                      .catch(function(error) {
+                          console.error('인증 상태 설정 중 에러 발생' , error);
+                      });
+
+
+              }
+          }
+
+          /**
+           * 지속성 설정 후 sign-in 팝업창
+           */
+          FirebaseChat.prototype.signInWithPopup = function(provider) {
+              var cbSignIn = function(result){
+                  console.log('로그인 성공')
+                  this.saveUserAtIndexedDB(result.user, null , false);
+              }
+
+              return  this.auth.signInWithPopup(provider).then(cbSignIn.bind(this)).catch(function(error) {
+                  alert('로그인에 실패하였습니다');
+                  console.error('로그인 에러',error);
+              });
           }
 
           /**
@@ -205,7 +336,7 @@
           FirebaseChat.prototype.onAuthChange = function(user){
               if (user) {
                   console.log('user로그인 : ',JSON.stringify(user));
-                  this.setLogin();
+                  this.setLogin(user); //파라미터 추가
               } else {
                   console.log('로그아웃');
                   this.setLogOut();
@@ -215,10 +346,64 @@
           /**
            *  로그인 후 세팅
            */
-          FirebaseChat.prototype.setLogin = function(){
+          FirebaseChat.prototype.setLogin = function(user){  //user 파라미터 추
               this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
               this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
               this.dvAuth.style.display = 'none';
+              this.checkAndSaveUser(user);
+          }
+
+          /**
+           * 신규 User를 IndexedDB에서 체크 후 저장
+           */
+          FirebaseChat.prototype.checkAndSaveUser = function(user){
+              try{
+                  var request = indexedDB.open(this.INDEXDB_DB_NAME , this.INDEXDB_VERSION);
+                  var objectName = this.INDEXDB_STORE;
+                  request.onsuccess = function() {
+                      var db = request.result;
+                      var tx = db.transaction(objectName, "readwrite");
+                      var store = tx.objectStore(objectName);
+
+                      store.get(user.uid).onsuccess = function(event){ // indexedDB에서 uid값으로 쿼리
+                          var data = event.target.result;
+                          console.log('IndexedDB query 결과 : ', data);
+                          console.log('checkAndSaveUser isSave' , data.isSave);
+                          if(!data.isSave){
+                              fbChat.saveUserAtRealDB(data);
+                          }
+                      }
+                      tx.oncomplete = function() {
+                          console.log('IndexedDB 트랜잭션 완료')
+                          db.close();
+                      };
+                  }
+              }catch(e){
+                  this.saveUserAtRealDB(user)
+              }
+          }
+
+          /**
+           *  Realtime Database에서 Users 데이터를 체크 후 저장
+           */
+          FirebaseChat.prototype.saveUserAtRealDB = function(user){
+              var userRef = this.database.ref('Users/' + user.uid);
+              var cbUserRefResult = function(dataSnapShot){ // User Ref에 데이터가 없을 경우 데이터 저장
+                  if(!dataSnapShot.hasChildren()){
+                      console.log('saveUserAtRealDB 저장');
+                      userRef.set({  //데이터 저장
+                          email: user.email
+                          , profileImg: user.photoURL ? user.photoURL : ''
+                          , userName : user.displayName
+                      }).then(cbUserAfterSave.bind(this));
+                  }
+              }
+              var cbUserAfterSave = function(){ //Realtime Database에 저장이 완료된 후 로컬 IndexedDB isSave 값을 true로 변경
+                  this.saveUserAtIndexedDB(user, null, true);
+              }
+
+              userRef.once('value')  // 1회만 검색하고 변경데이터를 수신하지 않음
+                  .then(cbUserRefResult.bind(this));
           }
 
           /**
@@ -268,67 +453,7 @@
               }
           }
 
-          /**
-           * 이메일로 가입 처리
-           */
-          FirebaseChat.prototype.createEmailUser = function(){
-              var userName = document.getElementById('joinUserName').value.trim();
-              var email = document.getElementById('joinUserEmail').value.trim();
-              var password = document.getElementById('joinPassword').value.trim();
-              var rePassword =document.getElementById('joinRePassword').value.trim();
-              // 유효성 검증
-              if(this.validateJoinForm(email, password, rePassword)){
-                  var cbCreateUserWithEmail = function(user){
-                      console.log('이메일 가입 성공 : ', JSON.stringify(user));
-                      //프로필 업데이트 - 이메일 가입시 유저이름 파라미터를 보내지 않으므로 가입 성공 후 처리
-                      user.updateProfile({
-                          displayName: this.userName,
-                      }).then(function() {
-                          console.log('userName 업데이트 성공')
-                      }).catch(function(error) {
-                          console.error('userName 업데이트 실패 : ', error );
-                      });
 
-                      //인증 메일 발송
-                      this.auth.useDeviceLanguage(); // 이메일 기기언어로 세팅
-                      user.sendEmailVerification().then(function() {
-                          console.log('인증메일 발송 성공')
-                      }).catch(function(error) {
-                          console.error('인증메일 발송 에러', error);
-                      });
-                  }
-                  var cbAfterPersistence = function(){
-                      return this.auth.createUserWithEmailAndPassword(email, password)
-                          .then(cbCreateUserWithEmail.bind(this))
-                          .catch(function(error) {
-                              console.error('이메일 가입시 에러 : ', error);
-                              switch(error.code){
-                                  case "auth/email-already-in-use":
-                                      alert('이미 사용중인 이메일 입니다.');
-                                      break;
-                                  case "auth/invalid-email":
-                                      alert('유효하지 않은 메일입니다');
-                                      break;
-                                  case "auth/operation-not-allowed":
-                                      alert('이메일 가입이 중지되었습니다.');
-                                      break;
-                                  case "auth/weak-password":
-                                      alert("비밀번호를 6자리 이상 필요합니다");
-                                      break;
-
-                              }
-                          });
-                  }
-
-                  this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
-                      .then(cbAfterPersistence.bind(this))
-                      .catch(function(error) {
-                          console.error('인증 상태 설정 중 에러 발생' , error);
-                      });
-
-
-              }
-          }
 
           /**
            *  이메일 가입 폼에서 유효성 체크
@@ -391,17 +516,7 @@
                   });
           }
 
-          /**
-           * 지속성 설정 후 sign-in 팝업창
-           */
-          FirebaseChat.prototype.signInWithPopup = function(provider) {
-              return  this.auth.signInWithPopup(provider).then(function(result) {
-                  console.log('로그인 성공')
-              }).catch(function(error) {
-                  alert('로그인에 실패하였습니다');
-                  console.error('로그인 에러',error);
-              });
-          }
+
 
           /**
            * Dom 로딩 후 동작
