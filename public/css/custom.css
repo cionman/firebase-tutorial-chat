@@ -1,0 +1,256 @@
+body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    overflow:hidden;
+    margin:0;
+    padding:0;
+}
+header{
+    flex: 1 0 40px;
+}
+main {
+    display:flex;
+    flex: 1 0 calc(100vh - 120px);
+    overflow:hidden;
+}
+main .tabContents{
+    width:100%;
+    flex: 1 0 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+footer{
+    flex: 1 0 32px;
+    justify-content: center;
+}
+.tabs .tab a{
+    position:relative;
+}
+.tabs .tab a i{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.collection .collection-item.avatar{
+    min-height:0;
+    border-bottom: none;
+}
+.collection .collection-item.avatar:hover{
+    background:#f7f7f7;
+}
+.collection{
+    margin-bottom:0;
+    margin-top:0;
+    border:none;
+    flex: 1 0 calc(100vh - 120px - 50px);
+    overflow: auto;
+}
+.collection-item.avatar.list{
+    height:70px;
+    border-bottom:1px solid #e3e3e3;
+    position:relative;
+    cursor:pointer;
+    user-select:none;
+}
+.collection-item.avatar.list > *{
+    position:absolute;
+    top:50%;
+    transform: translateY(-50%);
+}
+.time{
+    margin-left:10px;
+    color:#999;
+    font-size:0.7em;
+}
+#dvAuth{
+    position:fixed;
+    width:100%;
+    height:100vh;
+    top: 0;
+    left: 0;
+    z-index: 999;
+    background :white;
+}
+.meta-bar.chat {
+    border-top: 1px solid lightgrey;
+    background: white;
+    padding-right:5px;
+    border-bottom: none;
+    flex: 1 0 29px;
+    display:flex;
+    flex-direction:row;
+}
+.meta-bar.chat > #dvInputChat{
+    flex : 1 0 calc(100% - 50px);
+    border-bottom: none!important;
+    padding-left : 10px;
+
+}
+.meta-bar.chat > #dvInputChat:focus{
+    border-bottom: none!important;
+    box-shadow: none!important;
+}
+.meta-bar.chat > i{
+    padding-top: 7px;
+    margin-left: -10px;
+    flex : 1 0 22px;
+    cursor:pointer;
+}
+#tabs{
+    border-top:1px solid #e3e3e3
+}
+.tabs .indicator{
+    height:3px;
+}
+#dvLogin, #dvJoin{
+    padding-left:5%;
+    padding-right:5%;
+    position : relative;
+}
+#dvJoin{
+    display:none;
+}
+#dvLogin em{
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    margin-left: -17px;
+    display: inline-block;
+    text-align: center;
+    width: 34px;
+    height: 14px;
+    font-size: 13px;
+    background: #fff;
+}
+.btnGroup{
+    border-bottom: 1px solid #e4e4e4;
+    padding-bottom: 15px;
+}
+.btnGroup li{
+    position: relative;
+    cursor: pointer;
+    display: block;
+    height: 46px;
+    line-height: 46px;
+    text-align: center;
+    box-sizing: border-box;
+    color: #fff;
+    font-weight: 400;
+    width:100%;
+    margin: 10px auto;
+}
+.btnGroup li i{
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    margin-top: -10px;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+#liGoogleBtn{
+    background: #fff;
+    border: 1px solid #dadce0;
+    color: #7c8288!important;
+}
+#liGoogleBtn i{
+    background: url(../img/icon_google.svg) 50% no-repeat;
+}
+#liFacebookBtn{
+    background: #3b5998
+}
+#liFacebookBtn i{
+    background: url(../img/icon_facebook.png) 50% no-repeat;
+}
+#liEmailBtn{
+    background:#00b0ff;
+}
+#liEmailJoin, #liEmailJoinSubmit{
+    background:#ffb300;
+}
+#dvSocial{
+    position:relative;
+}
+#liLogOut{
+    border-bottom: 1px solid #e3e3e3;
+    cursor:pointer;
+    user-select : none;
+    height: 50px;
+    line-height: 30px;
+}
+#liLogOut:hover{
+    background: #f7f7f7;
+}
+.input-text{
+    box-sizing: border-box!important;
+    display: block;
+    width: 100%!important;
+    padding: 0 17px!important;
+    margin-bottom: 7px!important;
+    height: 46px!important;
+    line-height: 45px;
+    font-size: 13px!important;
+    color: #4a4a4a!important;
+    background: #fff;
+    border: 1px solid #e4e4e4!important;
+    outline: none!important;
+}
+.brand-logo.center{
+    width:100%;
+}
+#iBtnAttach{
+    padding-right:10px;
+}
+#ulRoomList li{
+    border-bottom: 1px solid #e3e3e3;
+    cursor: pointer;
+}
+nav .brand-logo{
+    font-size:1.5rem;
+}
+#tab-4{
+    position: absolute;
+    height: 100%;
+    z-index: 90;
+    padding-bottom:100px;
+    overflow: hidden;
+}
+#aBackBtn, #aInvite{
+    z-index:10;
+}
+#ulMessageList{
+    background: white;
+}
+@media only screen and (min-width: 601px){
+    nav, nav .nav-wrapper i, nav a.button-collapse, nav a.button-collapse i {
+        height: 56px;
+        line-height: 56px;
+    }
+}
+
+.nav-wrapper.valign-wrapper{
+    justify-content: space-between;
+    padding: 0 5px;
+}
+span.small.material-icons.right{
+    position:relative;
+}
+.modal .modal-footer{
+    padding-right:24px;
+}
+#dvMsgForm{
+    position:fixed;
+    bottom:0;
+    width:100%;
+}
+#dvMsgForm #dvInputChat{
+    margin-bottom:0;
+    cursor: text;
+    width:85%;
+    outline:none;
+    height: 45px;
+    padding-top: 10px;
+}

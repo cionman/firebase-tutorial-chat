@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Firebase-Tutorial</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
+    <link rel="stylesheet" href="css/custom.css">
+  </head>
+  <body>
+    <!-- header Top 영역 -->
+    <header class="navbar-fixed">
+        <nav>
+            <div class="nav-wrapper valign-wrapper">
+                <a href="#" id="aBackBtn" class="small material-icons left hiddendiv">arrow_back</a>
+                <span id="spTitle" class="brand-logo center">Firebase-Tutorial</span>
+                <a href="#dvAddUser" id="aInvite" class="small material-icons right hiddendiv modal-trigger">add</a>
+            </div>
+        </nav>
+    </header>
+    <!-- main 컨텐츠 영역 -->
+    <main>
+        <!-- 유저리스트탭 영역 -->
+        <div id="tab-1" class="col s12 tabContents">
+            <ul id="ulUserList" class="collection">
+            </ul>
+        </div>
+        <!-- 채팅방리스트탭 영역 -->
+        <div id="tab-2" class="col s12 tabContents" style="display: none">
+            <ul id="ulRoomList" class="collection">
+            </ul>
+        </div>
+        <!-- 설정탭 영역 -->
+        <div id="tab-3" class="col s12 tabContents">
+            <ul class="collection">
+                <li id="liLogOut" class="collection-item">로그아웃</li>
+            </ul>
+        </div>
+        <!-- 채팅방 메세지화면 영역 -->
+        <div id="tab-4" class="col s12 tabContents ">
+            <ul id="ulMessageList" class="collection">
+            </ul>
+            <div id="dvMsgForm" class="meta-bar chat">
+                <div id="dvInputChat" contenteditable="true" placeholder="메세지 작성"></div>
+                <i id='iBtnAttach' class="small material-icons">attach_file</i>
+                <i id='iBtnSend' class="small material-icons">send</i>
+                <input type="file" id="attachFile" style="display:none;"/>
+            </div>
+        </div>
+    </main>
+    <!-- footer 탭 영역 -->
+    <footer>
+        <ul id="tabs" class="tabs tabs-fixed-width">
+            <li class="tab col s3 blue darken-2"><a id="tabUserList" href="#tab-1"><i class="small material-icons white-text">person</i></a></li>
+            <li class="tab col s3 blue darken-2"><a id="tabRoomList" href="#tab-2"><i class="small material-icons white-text">message</i></a></li>
+            <li class="tab col s3 blue darken-2"><a id="tabSetting" href="#tab-3"><i class="small material-icons white-text">settings</i></a></li>
+            <li class="tab col s3" style="display:none"><a id="tabMessageList" href="#tab-4"></a></li>
+        </ul>
+    </footer>
+    <!-- 로그인 화면 및 가입화면 영역 -->
+    <div id="dvAuth">
+      <div id="dvLogin">
+          <h5>로그인</h5>
+          <div id="dvSocial">
+              <ul class="btnGroup">
+                  <li id="liGoogleBtn" class="waves-effect waves-teal btn-flat"><i></i>구글 계정으로 가입 및 로그인</li>
+                  <li id="liFacebookBtn" class="waves-effect waves-teal btn-flat"><i></i>페이스북 계정으로 가입 및 로그인</li>
+              </ul>
+              <em class="or">or</em>
+          </div>
+          <div id="dvEmail">
+              <input type="email" id="userName" name="userName" class="input-text" placeholder="이메일 아이디">
+              <input type="password" id="password" name="password" class="input-text" maxlength="17" placeholder="비밀번호">
+              <ul class="btnGroup">
+                  <li id="liEmailBtn" class="waves-effect waves-teal btn-flat">이메일으로 로그인</li>
+              </ul>
+              <ul class="btnGroup">
+                  <li id="liEmailJoin" class="waves-effect waves-teal btn-flat">이메일으로 가입</li>
+              </ul>
+          </div>
+      </div>
+      <div id="dvJoin">
+          <h5>이메일 가입</h5>
+          <input type="text" id="joinUserName" name="userName" class="input-text" placeholder="이름">
+          <input type="email" id="joinUserEmail" name="userName" class="input-text" placeholder="이메일 아이디">
+          <input type="password" id="joinPassword" name="password" class="input-text" maxlength="17" placeholder="비밀번호">
+          <input type="password" id="joinRePassword" class="input-text" maxlength="17" placeholder="비밀번호 확인">
+          <ul class="btnGroup">
+              <li id="liEmailJoinSubmit" class="waves-effect waves-teal btn-flat">이메일으로 가입</li>
+          </ul>
+      </div>
+    </div>
+    <!-- Modal 영역 -->
+    <div id="dnModal" class="modal col s4">
+        <div class="modal-content">
+            <h5>업로드</h5>
+            <div class="progress">
+                <div id="dvProgressBar" class="determinate"></div>
+                <div id="dvFileName"></div>
+            </div>
+        </div>
+    </div>
+    <div id="dvAddUser" class="modal">
+        <div class="modal-content">
+          <h5>초대</h5>
+          <ul id="ulAddUserList" class="collection">
+          </ul>
+        </div>
+        <div class="modal-footer">
+            <a id="aConfirmInvite" href="#!" class="modal-action modal-close waves-effect waves-green btn blue white-text">추가</a>
+        </div>
+    </div>
+    <!-- template 영역 -->
+    <!-- template 유저리스트 영역 -->
+    <script type="text/template" id="templateUserList">
+            <li id="li<%=targetUserUid %>" data-targetUserUid="<%=targetUserUid %>" data-username="<%=userName %>" class="collection-item avatar list">
+                <img src="<%=profileImg ? profileImg : 'img/noprofile.png'  %>" alt="" class="circle">
+                <span class="title"><%=userName %></span>
+                <span class="small material-icons right hiddendiv done">done</span>
+                <span class="small material-icons right hiddendiv mood yellow-text">mood</span>
+            </li>
+    </script>
+    <!-- template 메세지리스트 영역 -->
+    <script type="text/template" id="templateMessageList">
+        <li id="li<%=key%>" class="collection-item avatar" data-key="<%=key%>">
+            <img src="<%=profileImg ? profileImg : 'img/noprofile.png'  %>" alt="" class="circle">
+            <span class="title"><%=userName %></span><span class="time"><%=time %></span>
+            <p><%=message %></p>
+        </li>
+    </script>
+    <!-- template 채팅방리스트 영역 -->
+    <script type="text/template" id="templateRoomList">
+        <li id="liRoom<%=roomId %>" data-roomId="<%=roomId %>" data-roomTitle='<%=roomTitle%>' data-roomUserName="<%=roomUserName%>"
+            data-roomType="<%=roomType%>" data-roomOneVSOneTarget="<%=roomOneVSOneTarget%>" data-roomUserlist="<%=roomUserlist %>" class="collection-item avatar" >
+            <img src="<%=profileImg ? profileImg : 'img/noprofile.png'  %>" alt="" class="circle">
+            <span class="title"><%=roomTitle%></span>
+            <p><%=lastMessage %></p>
+            <a href="#!" class="secondary-content"> <%=datetime %></a>
+        </li>
+    </script>
+      <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>
+      <script type="text/javascript" src="js/materialize.min.js"></script>
+      <script type="text/javascript" src="js/underscore-min.js"></script>
+      <!-- update the version number as needed -->
+      <script defer src="/__/firebase/4.6.1/firebase-app.js"></script>
+      <script defer src="/__/firebase/4.6.1/firebase-auth.js"></script>
+      <script defer src="/__/firebase/4.6.1/firebase-database.js"></script>
+      <script defer src="/__/firebase/4.6.1/firebase-messaging.js"></script>
+      <script defer src="/__/firebase/4.6.1/firebase-storage.js"></script>
+      <script defer src="/__/firebase/init.js"></script>
+      <script>
+          /**
+           *  FirebaseChat ES5 클래스
+           */
+          function FirebaseChat(){
+
+          }
+
+          /**
+           * Dom 로딩 후 동작
+           */
+          document.addEventListener('DOMContentLoaded', function() {
+              //FirebaseChat 클래스 초기화
+              window.fbChat = new FirebaseChat();
+
+              //다운로드 프로그레스 팝업 modal 설정
+              $('#dnModal').modal();
+              //채팅방 초대 modal 설정
+              $('#dvAddUser').modal();
+          });
+      </script>
+  </body>
+</html>
