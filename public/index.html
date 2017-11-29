@@ -190,6 +190,8 @@
               this.MULTI = 'MULTI';
               this.ulRoomList = document.getElementById('ulRoomList');
               this.ORIGIN_TITLE = "Firebase-Tutorial";
+              this.ulAddUserList = document.getElementById('ulAddUserList');
+              this.aConfirmInvite =document.getElementById('aConfirmInvite');
           }
 
           /**
@@ -207,7 +209,130 @@
               this.iBtnSend.addEventListener('click', this.saveMessages.bind(this));
               this.dvInputChat.addEventListener("paste", this.onPaste.bind(this));
               this.aBackBtn.addEventListener('click', this.onBackBtnClick.bind(this));
+              this.aConfirmInvite.addEventListener('click', this.onConfirmInviteClick.bind(this));
           }
+
+          /**
+           * 초대
+           */
+          FirebaseChat.prototype.onConfirmInviteClick = function(){
+              var arrInviteUserList = Array.prototype.slice.call(this.ulAddUserList.getElementsByClassName('blue-text'));
+              var arrInviteUserListLength = arrInviteUserList.length;
+              var arrInviteUserName = [];
+              var updates = {};
+              for(var i=0; i < arrInviteUserListLength; i++){
+                  var inviteUserUid = arrInviteUserList[i].getAttribute('data-targetUserUid');
+                  var inviteUserName = arrInviteUserList[i].getAttribute('data-username') + '님';
+                  updates['RoomUsers/'+ this.roomId +'/'+ inviteUserUid] = true;
+                  arrInviteUserList[i].outerHTML = '';
+                  this.roomUserlist.push(inviteUserUid);
+                  this.roomUserName.push(inviteUserName);
+                  arrInviteUserName.push(inviteUserName);
+              }
+              this.roomUserlist.sort();
+              this.database.ref().update(updates);
+
+              //초대 메세지
+              this.saveMessages(arrInviteUserName.join() + '이 초대되었습니다.');
+          }
+
+          /**
+           * 메세지 전송
+           */
+          FirebaseChat.prototype.saveMessages = function(inviteMessage){
+              var user = this.auth.currentUser;
+              var msg = inviteMessage ? inviteMessage : this.dvInputChat.innerHTML.trim();
+
+              if(msg.length > 0){
+                  this.dvInputChat.focus();
+                  this.dvInputChat.innerHTML = '';
+                  var multiUpdates = {};
+                  var messageRefKey = this.messageRef.push().key; // 메세지 키값 구하기
+                  var convertMsg = FirebaseChat.convertMsg(msg);
+
+
+                  if(this.ulMessageList.getElementsByTagName('li').length === 0){ //메세지 처음 입력 하는 경우
+                      var roomUserlistLength =this.roomUserlist.length;
+                      for(var i=0; i < roomUserlistLength; i++){
+                          multiUpdates['RoomUsers/' +this.roomId+'/' +this.roomUserlist[i]] = true;
+                      }
+                      this.database.ref().update(multiUpdates); // 권한 때문에 먼저 저장해야함
+                      this.loadMessageList(this.roomId); //방에 메세지를 처음 입력하는 경우 권한때문에 다시 메세지를 로드 해주어야함
+                  }
+
+                  multiUpdates ={}; // 변수 초기화
+
+                  //메세지  저장
+                  multiUpdates['Messages/' +this.roomId + '/' + messageRefKey] = {
+                      uid: user.uid,
+                      userName: user.displayName,
+                      message: convertMsg, // 태그 입력 방지
+                      profileImg: user.photoURL ? user.photoURL : '',
+                      timestamp: firebase.database.ServerValue.TIMESTAMP  //서버시간 등록하기
+                  }
+
+                  //유저별 룸리스트 저장
+                  var roomUserListLength = this.roomUserlist.length;
+                  if(this.roomUserlist && roomUserListLength > 0){
+                      for(var i = 0; i < roomUserListLength ; i++){
+                          multiUpdates['UserRooms/'+ this.roomUserlist[i] +'/'+ this.roomId] = {
+                              roomId : this.roomId,
+                              roomUserName : this.roomUserName.join(this.SPLIT_CHAR),
+                              roomUserlist : this.roomUserlist.join(this.SPLIT_CHAR),
+                              roomType : roomUserListLength > 2 ? this.MULTI : this.ONE_VS_ONE,
+                              roomOneVSOneTarget : roomUserListLength == 2 && i == 0 ? this.roomUserlist[1] :  // 1대 1 대화이고 i 값이 0 이면
+                                  roomUserListLength == 2 && i == 1 ? this.roomUserlist[0]   // 1대 1 대화 이고 i값이 1이면
+                                      : '', // 나머지
+                              lastMessage : convertMsg,
+                              profileImg : user.photoURL ? user.photoURL : '',
+                              timestamp: firebase.database.ServerValue.TIMESTAMP
+
+                          };
+                      }
+                  }
+                  this.database.ref().update(multiUpdates);
+              }
+          }
+
+          /**
+           * 챗방 오픈 , 메세지 로드 및 AddUserList
+           */
+          FirebaseChat.prototype.openChatRoom = function(roomId, roomTitle){ // 파라미터 추가
+              this.isOpenRoom = true; // 방이 열린 상태인지 확인하는 플래그 값
+              if(roomTitle){  //상단 타이틀 변경
+                  this.spTitle.innerHTML = this.roomTitle;
+              }
+              this.loadMessageList(roomId); //메세지 로드
+              this.tabMessageList.click();
+              this.setAddUserList();
+          }
+
+          /**
+           * 유저 초대 팝업 모달 창 셋팅
+           */
+          FirebaseChat.prototype.setAddUserList = function(){
+            this.ulAddUserList.innerHTML =  this.ulUserList.innerHTML
+            var arrAddUserList = Array.prototype.slice.call(this.ulAddUserList.getElementsByTagName('li'));
+            var cbArrayForEach = function(item){
+                var itemUserUid = item.getAttribute('data-targetUserUid');
+                if(this.roomUserlist.indexOf(itemUserUid) === -1){
+                    item.getElementsByClassName('done')[0].classList.remove('hiddendiv');
+                    item.addEventListener('click',function(){
+                        if(Array.prototype.slice.call(this.classList).indexOf('blue-text') == -1){
+                            this.classList.add('blue-text');
+                        }else{
+                            this.classList.remove('blue-text');
+                        }
+                    });
+                }else{
+                    item.parentNode.removeChild(item);
+                }
+
+            }
+            arrAddUserList.forEach(cbArrayForEach.bind(this));
+          }
+
+
 
           /**
            * 백버튼 클릭
@@ -345,63 +470,7 @@
               }
           }
 
-          /**
-           * 메세지 전송
-           */
-          FirebaseChat.prototype.saveMessages = function(){
-              var user = this.auth.currentUser;
-              var msg = this.dvInputChat.innerHTML.trim();
 
-              if(msg.length > 0){
-                  this.dvInputChat.focus();
-                  this.dvInputChat.innerHTML = '';
-                  var multiUpdates = {};
-                  var messageRefKey = this.messageRef.push().key; // 메세지 키값 구하기
-                  var convertMsg = FirebaseChat.convertMsg(msg);
-
-
-                  if(this.ulMessageList.getElementsByTagName('li').length === 0){ //메세지 처음 입력 하는 경우
-                      var roomUserlistLength =this.roomUserlist.length;
-                      for(var i=0; i < roomUserlistLength; i++){
-                          multiUpdates['RoomUsers/' +this.roomId+'/' +this.roomUserlist[i]] = true;
-                      }
-                      this.database.ref().update(multiUpdates); // 권한 때문에 먼저 저장해야함
-                      this.loadMessageList(this.roomId); //방에 메세지를 처음 입력하는 경우 권한때문에 다시 메세지를 로드 해주어야함
-                  }
-
-                  multiUpdates ={}; // 변수 초기화
-
-                  //메세지  저장
-                  multiUpdates['Messages/' +this.roomId + '/' + messageRefKey] = {
-                      uid: user.uid,
-                      userName: user.displayName,
-                      message: convertMsg, // 태그 입력 방지
-                      profileImg: user.photoURL ? user.photoURL : '',
-                      timestamp: firebase.database.ServerValue.TIMESTAMP  //서버시간 등록하기
-                  }
-
-                  //유저별 룸리스트 저장
-                  var roomUserListLength = this.roomUserlist.length;
-                  if(this.roomUserlist && roomUserListLength > 0){
-                      for(var i = 0; i < roomUserListLength ; i++){
-                          multiUpdates['UserRooms/'+ this.roomUserlist[i] +'/'+ this.roomId] = {
-                              roomId : this.roomId,
-                              roomUserName : this.roomUserName.join(this.SPLIT_CHAR),
-                              roomUserlist : this.roomUserlist.join(this.SPLIT_CHAR),
-                              roomType : roomUserListLength > 2 ? this.MULTI : this.ONE_VS_ONE,
-                              roomOneVSOneTarget : roomUserListLength == 2 && i == 0 ? this.roomUserlist[1] :  // 1대 1 대화이고 i 값이 0 이면
-                                  roomUserListLength == 2 && i == 1 ? this.roomUserlist[0]   // 1대 1 대화 이고 i값이 1이면
-                                      : '', // 나머지
-                              lastMessage : convertMsg,
-                              profileImg : user.photoURL ? user.photoURL : '',
-                              timestamp: firebase.database.ServerValue.TIMESTAMP
-
-                          };
-                      }
-                  }
-                  this.database.ref().update(multiUpdates);
-              }
-          }
 
           /**
            *  메세지에 태그 입력시 변경하기
@@ -435,17 +504,7 @@
               }
           }
 
-          /**
-           * 챗방 오픈 , 메세지 로드 및 AddUserList
-           */
-          FirebaseChat.prototype.openChatRoom = function(roomId, roomTitle){ // 파라미터 추가
-              this.isOpenRoom = true; // 방이 열린 상태인지 확인하는 플래그 값
-              if(roomTitle){  //상단 타이틀 변경
-                  this.spTitle.innerHTML = this.roomTitle;
-              }
-              this.loadMessageList(roomId); //메세지 로드
-              this.tabMessageList.click();
-          }
+
 
           /**
            * 메세지 로드
