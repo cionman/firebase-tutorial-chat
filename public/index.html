@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
     <link rel="stylesheet" href="css/custom.css">
+    <link rel="manifest" href="manifest.json"/>
   </head>
   <body>
     <!-- header Top 영역 -->
@@ -522,6 +523,39 @@
               for(var i=0; i < arrLiListLength; i++){
                   arrLiList[i].addEventListener('click', this.onRoomListClick.bind(this));
               }
+
+              // 채팅방을 로드 후 url에 roomId파라미터가 있으면 채팅방을 클릭한다.
+              var paramData = FirebaseChat.getParam('roomId');
+              if(paramData && paramData.length > 0){
+                  document.getElementById('liRoom' + paramData).click();
+                  history.replaceState('','', '/');
+              }
+          }
+
+          /**
+           * 파라미터 값을 확인
+           */
+          FirebaseChat.getParam = function (name){
+              var result = "";
+              var queryString = window.location.search;
+              var paramMap = {}
+              if (queryString == "") result = undefined;
+              if (typeof result != "undefined"){
+                  var params = queryString.split("?")[1];
+
+                  if (params == "") result = undefined;
+
+                  if (typeof result != "undefined") {
+                      var paramObj = params.split("&");
+                      for (var i=0; i<paramObj.length; i++){
+                          var datas = paramObj[i].split("=");
+                          paramMap[datas[0]] = datas[1];
+                      }
+                      result = paramMap[name];
+                  }
+              }
+
+              return result;
           }
 
           /**
@@ -1108,6 +1142,12 @@
               $('#dnModal').modal();
               //채팅방 초대 modal 설정
               $('#dvAddUser').modal();
+
+              if(navigator.serviceWorker){
+                  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                      .then(function(reg){console.log('서비스워커 등록성공 :', reg)})
+                      .catch(function(error){console.log('서비스워커 등록실패 :', error)});
+              }
           });
       </script>
   </body>
