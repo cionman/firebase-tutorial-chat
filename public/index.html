@@ -176,7 +176,147 @@
               this.INDEXDB_VERSION = 1;
               this.INDEXDB_STORE ="Users";
               this.ulUserList = document.getElementById('ulUserList');
+              this.tabMessageList = document.getElementById('tabMessageList');
+              this.aBackBtn = document.getElementById('aBackBtn');
+              this.aInvite = document.getElementById('aInvite');
+              this.MAKEID_CHAR = '@make@';
+              this.DATETIME_CHAR = '@time@';
+              this.spTitle = document.getElementById('spTitle');
+              this.ulMessageList = document.getElementById('ulMessageList');
           }
+
+          /**
+           * 유저리스트 클릭
+           */
+          FirebaseChat.prototype.onUserListClick = function(event){
+              this.aBackBtn.classList.remove('hiddendiv'); // 백버튼 노출
+              this.aInvite.classList.remove('hiddendiv'); // 초대 버튼 노툴
+              var targetUserUid = event.currentTarget.getAttribute('data-targetUserUid');
+              var targetUserName = event.currentTarget.getAttribute('data-username');
+              this.roomTitle = targetUserName+'님';
+              this.roomUserlist = [targetUserUid, this.auth.currentUser.uid]; // 챗방 유저리스트
+              this.roomUserName = [targetUserName, this.auth.currentUser.displayName] // 챗방 유저 이름
+              this.roomId = this.MAKEID_CHAR + this.auth.currentUser.uid + this.DATETIME_CHAR + FirebaseChat.yyyyMMddHHmmsss();
+              this.openChatRoom(this.roomId, this.roomTitle);  // 파라미터 추가
+          }
+
+          /**
+           * 챗방 오픈 , 메세지 로드 및 AddUserList
+           */
+          FirebaseChat.prototype.openChatRoom = function(roomId, roomTitle){ // 파라미터 추가
+              this.isOpenRoom = true; // 방이 열린 상태인지 확인하는 플래그 값
+              if(roomTitle){  //상단 타이틀 변경
+                  this.spTitle.innerHTML = this.roomTitle;
+              }
+              this.loadMessageList(roomId); //메세지 로드
+              this.tabMessageList.click();
+          }
+
+          /**
+           * 메세지 로드
+           */
+          FirebaseChat.prototype.loadMessageList = function(roomId){
+
+              if(roomId){
+                  this.ulMessageList.innerHTML = ''; //메세지 화면 리셋
+                  var messageTemplate = document.getElementById('templateMessageList').innerHTML;
+                  if(this.messageRef){  // 이전 메세지 ref 이벤트 제거
+                      this.messageRef.off();
+                  }
+                  this.messageRef = this.database.ref('Messages/' + roomId);
+                  var cbDisplayMessages = function(data) {
+                      var messageHtml = '';
+                      var val = data.val();
+                      messageHtml = _.template(messageTemplate)({
+                          key : data.key
+                          , profileImg : val.profileImg
+                          , userName : val.userName
+                          , time : FirebaseChat.timestampToTime(val.timestamp)
+                          , message : val.message
+                      });
+                      this.ulMessageList.innerHTML = this.ulMessageList.innerHTML + messageHtml;
+                      this.ulMessageList.scrollTop = this.ulMessageList.scrollHeight;
+                      this.roomTitle = val.roomTitle;
+                  }
+                  this.messageRef.limitToLast(50).on('child_added', cbDisplayMessages.bind(this));
+              }
+          }
+          /**
+           * 현재날짜 yyyyMMddHHmmsss형태로 반환
+           */
+          FirebaseChat.yyyyMMddHHmmsss =function(){
+              var vDate = new Date();
+              var yyyy = vDate.getFullYear().toString();
+              var MM = (vDate.getMonth() + 1).toString();
+              var dd = vDate.getDate().toString();
+              var HH = vDate.getHours().toString();
+              var mm = vDate.getMinutes().toString();
+
+              var ss = vDate.getSeconds().toString();
+              var sss= vDate.getMilliseconds().toString();
+              return yyyy + (MM[1] ? MM : '0'+MM[0]) + (dd[1] ? dd : '0'+dd[0]) + (HH[1] ? HH : '0'+ HH[0])
+                  + (mm[1] ? mm : '0'+ mm[0]) + (ss[1] ? ss : '0'+ss[0])+ sss;
+          };
+
+          /**
+           * timestamp를 날짜 시간 으로 변환
+           */
+          FirebaseChat.timestampToTime = function(timestamp){
+              var date = new Date(timestamp),
+                  year = date.getFullYear(),
+                  month = date.getMonth()+1,
+                  day = date.getDate(),
+                  hour = date.getHours(),
+                  minute = date.getMinutes(),
+                  week = new Array('일', '월', '화', '수', '목', '금', '토');
+
+              var convertDate = year + "년 "+month+"월 "+ day +"일 ("+ week[date.getDay()] +") ";
+              var convertHour="";
+              if(hour < 12){
+                  convertHour = "오전 " + FirebaseChat.pad(hour) +":" + FirebaseChat.pad(minute);
+              }else if(hour === 12){
+                  convertHour = "오후 " + FirebaseChat.pad(hour) +":" + FirebaseChat.pad(minute);
+              }else{
+                  convertHour = "오후 " + FirebaseChat.pad(hour - 12) +":" + FirebaseChat.pad(minute);
+              }
+
+              return convertDate + convertHour;
+          }
+
+          /**
+           *  10미만 숫자 앞에 0 붙이기
+           */
+          FirebaseChat.pad = function(n){
+              return n > 9 ? "" + n: "0" + n;
+          }
+
+
+          /**
+           * loadUserList 에서 데이터를 받아 왔을 때
+           */
+          FirebaseChat.prototype.getUserList  =  function(snapshot) {
+              var userListHtml = '';
+              var cbDisplayUserList = function(data){
+                  var val = data.val();
+                  if(data.key !== this.auth.currentUser.uid){
+                      userListHtml += _.template(this.userTemplate)({targetUserUid : data.key, profileImg : val.profileImg, userName : val.userName});
+                  }
+              }
+              snapshot.forEach(cbDisplayUserList.bind(this));
+              this.ulUserList.innerHTML = userListHtml;
+
+              /**
+               *  유저리스트 클릭 이벤트 적용
+               */
+              var arrLiList = this.ulUserList.getElementsByTagName('li')
+              var arrLiListLength = arrLiList.length;
+              for(var i=0; i < arrLiListLength; i++){
+                  arrLiList[i].addEventListener('click', this.onUserListClick.bind(this));
+              }
+
+          }
+
+
 
           /**
            *  로그인 후 세팅
@@ -200,21 +340,7 @@
           }
 
 
-          /**
-           * loadUserList 에서 데이터를 받아 왔을 때
-           */
-          FirebaseChat.prototype.getUserList  =  function(snapshot) {
-              var userListHtml = '';
-              var cbDisplayUserList = function(data){
-                  var val = data.val();
-                  if(data.key !== this.auth.currentUser.uid){
-                      userListHtml += _.template(this.userTemplate)({targetUserUid : data.key, profileImg : val.profileImg, userName : val.userName});
-                  }
-              }
-              snapshot.forEach(cbDisplayUserList.bind(this));
-              this.ulUserList.innerHTML = userListHtml;
 
-          }
 
 
 
