@@ -154,7 +154,253 @@
            *  FirebaseChat ES5 클래스
            */
           function FirebaseChat(){
+              this.init();
+              this.initEvent();
+          }
 
+          /**
+           * 초기 필드 변수 할당
+           */
+          FirebaseChat.prototype.init = function(){
+              this.auth = firebase.auth();
+              this.liGoogleBtn = document.getElementById('liGoogleBtn');
+              this.liFacebookBtn = document.getElementById('liFacebookBtn');
+              this.liEmailJoin = document.getElementById('liEmailJoin');
+              this.dvLogin  = document.getElementById('dvLogin');
+              this.dvJoin = document.getElementById('dvJoin');
+              this.liEmailJoinSubmit = document.getElementById('liEmailJoinSubmit');
+              this.liEmailBtn = document.getElementById('liEmailBtn');
+              this.dvAuth = document.getElementById('dvAuth');
+              this.liLogOut = document.getElementById('liLogOut');
+          }
+
+          /**
+           * 초기 이벤트 바인딩
+           */
+          FirebaseChat.prototype.initEvent = function(){
+              this.liGoogleBtn.addEventListener('click', this.onGoogleBtnClick.bind(this));
+              this.auth.onAuthStateChanged(this.onAuthChange.bind(this));
+              this.liFacebookBtn.addEventListener('click', this.onFacebookBtnClick.bind(this));
+              this.liEmailJoin.addEventListener('click', this.displayEmailJoin.bind(this));
+              this.liEmailJoinSubmit.addEventListener('click', this.createEmailUser.bind(this));
+              this.liEmailBtn.addEventListener('click', this.onEmailBtnClick.bind(this));
+              this.liLogOut.addEventListener('click', this.logOut.bind(this));
+          }
+
+          /**
+           * 로그아웃
+           */
+          FirebaseChat.prototype.logOut = function(){
+              if(confirm('로그아웃 하시겠습니까?')){
+                  if(this.database){
+                      this.database.goOffline(); // 데이터 베이스를 명시적으로 오프라인
+                  }
+                  this.auth.signOut();
+              }
+          }
+
+          /**
+           * 인증 정보가 변화 되었을 시에 변화
+           */
+          FirebaseChat.prototype.onAuthChange = function(user){
+              if (user) {
+                  console.log('user로그인 : ',JSON.stringify(user));
+                  this.setLogin();
+              } else {
+                  console.log('로그아웃');
+                  this.setLogOut();
+              }
+          }
+
+          /**
+           *  로그인 후 세팅
+           */
+          FirebaseChat.prototype.setLogin = function(){
+              this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
+              this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
+              this.dvAuth.style.display = 'none';
+          }
+
+          /**
+           * 로그아웃 되어 onAuthStateChange 에 감지 된 후 동작
+           */
+          FirebaseChat.prototype.setLogOut = function(){
+              this.dvAuth.style.display = 'block';
+              this.dvJoin.style.display='none';
+              this.dvLogin.style.display = 'block';
+          }
+
+
+
+          /***
+           *  이메일 로그인 버튼 클릭
+           */
+          FirebaseChat.prototype.onEmailBtnClick = function(){
+              var email = document.getElementById('userName').value.trim();
+              var password = document.getElementById('password').value.trim();
+              if(FirebaseChat.emailCheck(email) && password.length > 0){ // 유효성 체크
+                  var cbSignInEmail = function() {
+                      return  this.auth.signInWithEmailAndPassword(email, password)
+                          .then(function(){
+                              console.log('이메일 로그인 성공');
+                          })
+                          .catch(function(error) {
+                              console.error('이메일 로그인 과정 에러', error);
+                              switch(error.code){
+                                  case "auth/invalid-email":
+                                      alert('유효하지 않은 메일입니다');
+                                      break;
+                                  case "auth/user-disabled":
+                                      alert('사용이 정지된 유저 입니다.')
+                                      break;
+                                  case "auth/user-not-found":
+                                      alert('사용자를 찾을 수 없습니다.')
+                                      break;
+                                  case "auth/wrong-password":
+                                      alert("잘못된 패스워드 입니다.");
+                                      break;
+
+                              }
+                          });
+                  }
+                  this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                      .then(cbSignInEmail.bind(this));
+              }
+          }
+
+          /**
+           * 이메일로 가입 처리
+           */
+          FirebaseChat.prototype.createEmailUser = function(){
+              var userName = document.getElementById('joinUserName').value.trim();
+              var email = document.getElementById('joinUserEmail').value.trim();
+              var password = document.getElementById('joinPassword').value.trim();
+              var rePassword =document.getElementById('joinRePassword').value.trim();
+              // 유효성 검증
+              if(this.validateJoinForm(email, password, rePassword)){
+                  var cbCreateUserWithEmail = function(user){
+                      console.log('이메일 가입 성공 : ', JSON.stringify(user));
+                      //프로필 업데이트 - 이메일 가입시 유저이름 파라미터를 보내지 않으므로 가입 성공 후 처리
+                      user.updateProfile({
+                          displayName: this.userName,
+                      }).then(function() {
+                          console.log('userName 업데이트 성공')
+                      }).catch(function(error) {
+                          console.error('userName 업데이트 실패 : ', error );
+                      });
+
+                      //인증 메일 발송
+                      this.auth.useDeviceLanguage(); // 이메일 기기언어로 세팅
+                      user.sendEmailVerification().then(function() {
+                          console.log('인증메일 발송 성공')
+                      }).catch(function(error) {
+                          console.error('인증메일 발송 에러', error);
+                      });
+                  }
+                  var cbAfterPersistence = function(){
+                      return this.auth.createUserWithEmailAndPassword(email, password)
+                          .then(cbCreateUserWithEmail.bind(this))
+                          .catch(function(error) {
+                              console.error('이메일 가입시 에러 : ', error);
+                              switch(error.code){
+                                  case "auth/email-already-in-use":
+                                      alert('이미 사용중인 이메일 입니다.');
+                                      break;
+                                  case "auth/invalid-email":
+                                      alert('유효하지 않은 메일입니다');
+                                      break;
+                                  case "auth/operation-not-allowed":
+                                      alert('이메일 가입이 중지되었습니다.');
+                                      break;
+                                  case "auth/weak-password":
+                                      alert("비밀번호를 6자리 이상 필요합니다");
+                                      break;
+
+                              }
+                          });
+                  }
+
+                  this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                      .then(cbAfterPersistence.bind(this))
+                      .catch(function(error) {
+                          console.error('인증 상태 설정 중 에러 발생' , error);
+                      });
+
+
+              }
+          }
+
+          /**
+           *  이메일 가입 폼에서 유효성 체크
+           */
+          FirebaseChat.prototype.validateJoinForm = function(email, password, rePassword){
+              //이메일 유효성 체크
+              if(!FirebaseChat.emailCheck(email)){
+                  alert("이메일 형식에 맞지 않습니다");
+                  return false;
+              }
+              //패스워드 동일 여부 체크
+              if(password !== rePassword){
+                  alert('패스워드가 동일하지 않습니다');
+                  return false
+              }
+
+              return true;
+          }
+
+          /**
+           * 이메일 형식 체크
+           */
+          FirebaseChat.emailCheck = function(mail){
+              if (/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(mail)) {
+                  return true;
+              }
+              return false;
+          }
+
+
+          /**
+           * 이메일 가입 폼 표시
+           */
+          FirebaseChat.prototype.displayEmailJoin = function(){
+              this.dvLogin.style.display='none';
+              this.dvJoin.style.display='block';
+          }
+
+          /**
+           * 페이스북 로그인 버튼 클릭
+           */
+          FirebaseChat.prototype.onFacebookBtnClick = function(){
+              var facebookProvider = new firebase.auth.FacebookAuthProvider();
+              this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                  .then(this.signInWithPopup.bind(this, facebookProvider))
+                  .catch(function(error) {
+                      console.error('인증 상태 설정 중 에러 발생' , error);
+                  });
+          }
+
+          /**
+           * Google 로그인 버튼 클릭
+           */
+          FirebaseChat.prototype.onGoogleBtnClick = function(){
+              var googleProvider = new firebase.auth.GoogleAuthProvider();
+              this.auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                  .then(this.signInWithPopup.bind(this, googleProvider))
+                  .catch(function(error) {
+                      console.error('인증 상태 설정 중 에러 발생' , error);
+                  });
+          }
+
+          /**
+           * 지속성 설정 후 sign-in 팝업창
+           */
+          FirebaseChat.prototype.signInWithPopup = function(provider) {
+              return  this.auth.signInWithPopup(provider).then(function(result) {
+                  console.log('로그인 성공')
+              }).catch(function(error) {
+                  alert('로그인에 실패하였습니다');
+                  console.error('로그인 에러',error);
+              });
           }
 
           /**
