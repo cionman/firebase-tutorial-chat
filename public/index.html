@@ -175,7 +175,47 @@
               this.INDEXDB_DB_NAME = "USER";
               this.INDEXDB_VERSION = 1;
               this.INDEXDB_STORE ="Users";
+              this.ulUserList = document.getElementById('ulUserList');
           }
+
+          /**
+           *  로그인 후 세팅
+           */
+          FirebaseChat.prototype.setLogin = function(user){  //user 파라미터 추
+              this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
+              this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
+              this.dvAuth.style.display = 'none';
+              this.checkAndSaveUser(user);
+              this.loadUserList();
+          }
+
+          /**
+           *  첫번째 탭 유저리스트 호출
+           */
+          FirebaseChat.prototype.loadUserList = function(){
+              this.userTemplate = document.getElementById('templateUserList').innerHTML;
+              var userRef = this.database.ref('Users');
+              userRef.off();
+              userRef.orderByChild("userName").once('value', this.getUserList.bind(this));
+          }
+
+
+          /**
+           * loadUserList 에서 데이터를 받아 왔을 때
+           */
+          FirebaseChat.prototype.getUserList  =  function(snapshot) {
+              var userListHtml = '';
+              var cbDisplayUserList = function(data){
+                  var val = data.val();
+                  if(data.key !== this.auth.currentUser.uid){
+                      userListHtml += _.template(this.userTemplate)({targetUserUid : data.key, profileImg : val.profileImg, userName : val.userName});
+                  }
+              }
+              snapshot.forEach(cbDisplayUserList.bind(this));
+              this.ulUserList.innerHTML = userListHtml;
+
+          }
+
 
 
           /**
@@ -343,15 +383,7 @@
               }
           }
 
-          /**
-           *  로그인 후 세팅
-           */
-          FirebaseChat.prototype.setLogin = function(user){  //user 파라미터 추
-              this.database = firebase.database(); // 인증 받은 후 초기화 하여야 합니다. 필드 변수에 서 할당하면 인증 받기전에 할당이라 에러발생
-              this.database.goOnline(); // 데이터베이스를 명시적으로 온라인
-              this.dvAuth.style.display = 'none';
-              this.checkAndSaveUser(user);
-          }
+
 
           /**
            * 신규 User를 IndexedDB에서 체크 후 저장
