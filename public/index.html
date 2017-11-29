@@ -192,7 +192,11 @@
               this.ORIGIN_TITLE = "Firebase-Tutorial";
               this.ulAddUserList = document.getElementById('ulAddUserList');
               this.aConfirmInvite =document.getElementById('aConfirmInvite');
+              this.iBtnAttach = document.getElementById('iBtnAttach');
+              this.attachFile = document.getElementById('attachFile');
           }
+
+
 
           /**
            * 초기 이벤트 바인딩
@@ -210,45 +214,77 @@
               this.dvInputChat.addEventListener("paste", this.onPaste.bind(this));
               this.aBackBtn.addEventListener('click', this.onBackBtnClick.bind(this));
               this.aConfirmInvite.addEventListener('click', this.onConfirmInviteClick.bind(this));
+              this.iBtnAttach.addEventListener('click', this.onBtnAttachClick.bind(this));
+              this.attachFile.addEventListener('change', this.onAttachFile.bind(this));
           }
 
           /**
-           * 초대
+           *  첨부파일 버튼 클릭
            */
-          FirebaseChat.prototype.onConfirmInviteClick = function(){
-              var arrInviteUserList = Array.prototype.slice.call(this.ulAddUserList.getElementsByClassName('blue-text'));
-              var arrInviteUserListLength = arrInviteUserList.length;
-              var arrInviteUserName = [];
-              var updates = {};
-              for(var i=0; i < arrInviteUserListLength; i++){
-                  var inviteUserUid = arrInviteUserList[i].getAttribute('data-targetUserUid');
-                  var inviteUserName = arrInviteUserList[i].getAttribute('data-username') + '님';
-                  updates['RoomUsers/'+ this.roomId +'/'+ inviteUserUid] = true;
-                  arrInviteUserList[i].outerHTML = '';
-                  this.roomUserlist.push(inviteUserUid);
-                  this.roomUserName.push(inviteUserName);
-                  arrInviteUserName.push(inviteUserName);
-              }
-              this.roomUserlist.sort();
-              this.database.ref().update(updates);
+          FirebaseChat.prototype.onBtnAttachClick = function(){
+              this.attachFile.click();
+          }
 
-              //초대 메세지
-              this.saveMessages(arrInviteUserName.join() + '이 초대되었습니다.');
+          /**
+           * 첨부파일 전송
+           */
+          FirebaseChat.prototype.onAttachFile = function(event){
+
+              $('#dnModal').modal('open');
+              var files = event.target.files;
+              var filesLength = files.length;
+              var progressBar = document.getElementById('dvProgressBar');
+              var fileName = files[0].name;
+              var path = FirebaseChat.yyyyMMddHHmmsss().substr(0, 8) +'/'+this.roomId + '/' + this.auth.currentUser.uid + '/' + fileName;
+              var uploadTask = firebase.storage().ref().child(path).put(files[0]);
+
+              var cbProgress = function(snapshot){ // 진행 과정
+                  var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                  progressBar.style.width = progress+'%';
+              }
+
+              var cbError = function(error) { // 에러발생
+                  console.log(error);
+                  $('#dnModal').modal('close');
+                  alert('업로드 중 에러가 발생하였습니다.');
+              }
+              var cbComplete = function() { // 완료
+                  //프로그레스바 닫기
+                  $('#dnModal').modal('close');
+
+                  //완료 다운로드 링크 메세지 보내기
+                  this.saveMessages(null, uploadTask.snapshot.downloadURL, fileName);
+
+                  //files 리셋
+                  event.target.value='';
+              }
+
+//프로그레스바
+              uploadTask.on('state_changed', cbProgress.bind(this) , cbError.bind(this), cbComplete.bind(this));
           }
 
           /**
            * 메세지 전송
            */
-          FirebaseChat.prototype.saveMessages = function(inviteMessage){
+          FirebaseChat.prototype.saveMessages = function(inviteMessage, downloadURL, fileName){
               var user = this.auth.currentUser;
-              var msg = inviteMessage ? inviteMessage : this.dvInputChat.innerHTML.trim();
+              var msg = this.dvInputChat.innerHTML.trim();
+              //초대메세지
+              if(inviteMessage && inviteMessage.length > 0){
+                  msg = inviteMessage;
+              }
+              //파일전송 메세지
+              if(downloadURL && fileName){
+                  msg = "<a class='waves-effect waves-light btn blue' download='"+fileName+"' href='"+ downloadURL +"'>다운로드</a></br><span class=''>파일명 : "+ fileName +"</span>";
+              }
+
 
               if(msg.length > 0){
                   this.dvInputChat.focus();
                   this.dvInputChat.innerHTML = '';
                   var multiUpdates = {};
                   var messageRefKey = this.messageRef.push().key; // 메세지 키값 구하기
-                  var convertMsg = FirebaseChat.convertMsg(msg);
+                  var convertMsg = downloadURL ? msg : FirebaseChat.convertMsg(msg); //다운로드 URL일 경우 convert하지 않음
 
 
                   if(this.ulMessageList.getElementsByTagName('li').length === 0){ //메세지 처음 입력 하는 경우
@@ -283,7 +319,7 @@
                               roomOneVSOneTarget : roomUserListLength == 2 && i == 0 ? this.roomUserlist[1] :  // 1대 1 대화이고 i 값이 0 이면
                                   roomUserListLength == 2 && i == 1 ? this.roomUserlist[0]   // 1대 1 대화 이고 i값이 1이면
                                       : '', // 나머지
-                              lastMessage : convertMsg,
+                              lastMessage : downloadURL ? '다운로드' : convertMsg,
                               profileImg : user.photoURL ? user.photoURL : '',
                               timestamp: firebase.database.ServerValue.TIMESTAMP
 
@@ -293,6 +329,32 @@
                   this.database.ref().update(multiUpdates);
               }
           }
+
+          /**
+           * 초대
+           */
+          FirebaseChat.prototype.onConfirmInviteClick = function(){
+              var arrInviteUserList = Array.prototype.slice.call(this.ulAddUserList.getElementsByClassName('blue-text'));
+              var arrInviteUserListLength = arrInviteUserList.length;
+              var arrInviteUserName = [];
+              var updates = {};
+              for(var i=0; i < arrInviteUserListLength; i++){
+                  var inviteUserUid = arrInviteUserList[i].getAttribute('data-targetUserUid');
+                  var inviteUserName = arrInviteUserList[i].getAttribute('data-username') + '님';
+                  updates['RoomUsers/'+ this.roomId +'/'+ inviteUserUid] = true;
+                  arrInviteUserList[i].outerHTML = '';
+                  this.roomUserlist.push(inviteUserUid);
+                  this.roomUserName.push(inviteUserName);
+                  arrInviteUserName.push(inviteUserName);
+              }
+              this.roomUserlist.sort();
+              this.database.ref().update(updates);
+
+              //초대 메세지
+              this.saveMessages(arrInviteUserName.join() + '이 초대되었습니다.');
+          }
+
+
 
           /**
            * 챗방 오픈 , 메세지 로드 및 AddUserList
