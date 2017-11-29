@@ -194,8 +194,27 @@
               this.aConfirmInvite =document.getElementById('aConfirmInvite');
               this.iBtnAttach = document.getElementById('iBtnAttach');
               this.attachFile = document.getElementById('attachFile');
+              this.setCloudMessaging();
           }
 
+          /**
+           * Cloud Messaging
+           */
+          FirebaseChat.prototype.setCloudMessaging = function () {
+              //메세징
+              var messaging = firebase.messaging();
+              messaging.requestPermission()
+                  .then(function(){
+                      console.log('메세징 권한 획득');
+                      return messaging.getToken();
+                  })
+                  .then(function(token){
+                      console.log('fcm token : ', token);
+                  })
+                  .catch(function(e){
+                      console.log('메세징 권한 획득 중 에러', e);
+                  });
+          }
 
 
           /**
@@ -420,6 +439,26 @@
               this.loadUserList();
               this.loadRoomList();  //채팅방 목록불러오기
               this.checkOnline();
+              this.saveFCMToken();
+          }
+
+          /**
+           *  FCM Token 저장
+           */
+          FirebaseChat.prototype.saveFCMToken = function(){
+              //로그인 후에 fcm 정보를 검색하여 저장
+              var cbGetToekn = function(token){
+                  console.log('setLogin fcmId get : ', token);
+                  var userUid = this.auth.currentUser.uid;
+                  var fcmIdRef= this.database.ref('FcmId/' +userUid);
+                  fcmIdRef.set(token);
+              }
+
+              firebase.messaging().getToken()
+                  .then(cbGetToekn.bind(this))
+                  .catch(function(e){
+                      console.log('fcmId 확인 중 에러 : ', e);
+                  })
           }
 
           /**
